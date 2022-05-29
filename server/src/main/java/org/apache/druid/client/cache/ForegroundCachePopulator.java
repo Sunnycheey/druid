@@ -21,13 +21,11 @@ package org.apache.druid.client.cache;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang.mutable.MutableBoolean;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 
 import java.io.ByteArrayOutputStream;
@@ -67,7 +65,6 @@ public class ForegroundCachePopulator implements CachePopulator
   {
     final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     final MutableBoolean tooBig = new MutableBoolean(false);
-    final SerializerProvider serializers = objectMapper.getSerializerProviderInstance();
     final JsonGenerator jsonGenerator;
 
     try {
@@ -83,7 +80,7 @@ public class ForegroundCachePopulator implements CachePopulator
             input -> {
               if (!tooBig.isTrue()) {
                 try {
-                  JacksonUtils.writeObjectUsingSerializerProvider(jsonGenerator, serializers, cacheFn.apply(input));
+                  jsonGenerator.writeObject(cacheFn.apply(input));
 
                   // Not flushing jsonGenerator before checking this, but should be ok since Jackson buffers are
                   // typically just a few KB, and we don't want to waste cycles flushing.

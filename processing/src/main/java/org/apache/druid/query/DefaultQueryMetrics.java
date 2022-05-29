@@ -348,6 +348,12 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
+  public QueryMetrics<QueryType> reportCacheTime(long timeNs)
+  {
+    return reportMetric("query/cache/time", timeNs);
+  }
+
+  @Override
   public void emit(ServiceEmitter emitter)
   {
     checkModifiedFromOwnerThread();

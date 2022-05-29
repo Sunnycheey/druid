@@ -69,13 +69,16 @@ public class CaffeineCache implements org.apache.druid.client.cache.Cache
     }
     if (config.getSizeInBytes() >= 0) {
       builder.maximumWeight(config.getSizeInBytes());
+      //builder.maximumSize(config.getSizeInBytes());
     } else {
       builder.maximumWeight(Math.min(MAX_DEFAULT_BYTES, JvmUtils.getRuntimeInfo().getMaxHeapSizeBytes() / 10));
+      //builder.maximumSize(Math.min(MAX_DEFAULT_BYTES, JvmUtils.getRuntimeInfo().getMaxHeapSizeBytes() / 10));
     }
     builder
         .weigher((NamedKey key, byte[] value) -> value.length
                                                  + key.key.length
                                                  + key.namespace.length() * Character.BYTES
+                                                //+ 2 * Character.BYTES
                                                  + FIXED_COST)
         .executor(executor);
     return new CaffeineCache(builder.build(), config);

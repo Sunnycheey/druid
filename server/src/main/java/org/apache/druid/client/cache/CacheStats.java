@@ -31,6 +31,10 @@ public class CacheStats
   private final long numTimeouts;
   private final long numErrors;
 
+  private long lruNums;
+  private long totalNums;
+  private long orfEvictionNums;
+
   public CacheStats(
       long numHits,
       long numMisses,
@@ -48,7 +52,59 @@ public class CacheStats
     this.numEvictions = numEvictions;
     this.numTimeouts = numTimeouts;
     this.numErrors = numErrors;
+
+    this.orfEvictionNums = 0;
+    this.lruNums = 0;
+    this.totalNums = 0;
   }
+
+
+  public CacheStats(
+          long numHits,
+          long numMisses,
+          long size,
+          long sizeInBytes,
+          long numEvictions,
+          long lruNums,
+          long totalNums,
+          long orfEvictionNums,
+          long numTimeouts,
+          long numErrors
+  )
+  {
+    this.numHits = numHits;
+    this.numMisses = numMisses;
+    this.size = size;
+    this.sizeInBytes = sizeInBytes;
+    this.numEvictions = numEvictions;
+    this.lruNums = lruNums;
+    this.totalNums = totalNums;
+    this.orfEvictionNums = orfEvictionNums;
+    this.numTimeouts = numTimeouts;
+    this.numErrors = numErrors;
+  }
+
+  @Override
+  public String toString() {
+    return "CacheStats{" +
+            "numHits=" + numHits +
+            "\n numMisses=" + numMisses +
+            "\n size=" + size +
+            "\n sizeInBytes=" + sizeInBytes +
+            "\n numEvictions=" + numEvictions +
+            "\n numTimeouts=" + numTimeouts +
+            "\n numErrors=" + numErrors +
+            "\n lruNums=" + lruNums +
+            "\n totalNums=" + totalNums +
+            "\n orfEvictionNums="+orfEvictionNums+
+            '}';
+  }
+
+  public long getLruNums(){ return lruNums;}
+
+  public long getTotalNums() {return totalNums;}
+
+  public long getOrfEvictionNums(){return orfEvictionNums;}
 
   public long getNumHits()
   {

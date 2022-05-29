@@ -18,17 +18,10 @@
  */
 
 package org.apache.druid.client.cache;
-
 import org.apache.druid.java.util.common.logger.Logger;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -43,6 +36,23 @@ class ByteCountingLRUMap extends LinkedHashMap<ByteBuffer, byte[]>
 
   private final AtomicLong numBytes;
   private final AtomicLong evictionCount;
+  private final AtomicLong lruPutNums;
+  private final AtomicLong totalPutNums;
+  private final AtomicLong orfEvictionNums;
+
+  private final AtomicLong scaledLFUEvictionNums;
+
+  private final List<ByteBuffer> keysToRemove;
+
+
+  /**
+  private String Byte2String(ByteBuffer buffer){
+    Charset charset = StandardCharsets.UTF_8;
+    CharBuffer charBuffer = charset.decode(buffer);
+    String s = charBuffer.toString();
+    return s;
+  }
+   */
 
   public ByteCountingLRUMap(
       final long sizeInBytes
@@ -62,8 +72,15 @@ class ByteCountingLRUMap extends LinkedHashMap<ByteBuffer, byte[]>
     this.sizeInBytes = sizeInBytes;
 
     logEvictions = logEvictionCount != 0;
-    numBytes = new AtomicLong(0L);
-    evictionCount = new AtomicLong(0L);
+    numBytes = new AtomicLong(0L);//cache中的字节数
+    evictionCount = new AtomicLong(0L);//eviction的Cache个数
+    lruPutNums = new AtomicLong(0);
+    totalPutNums = new AtomicLong(0);
+    orfEvictionNums = new AtomicLong(0);
+
+    scaledLFUEvictionNums = new AtomicLong(0);
+
+    keysToRemove = new ArrayList<>();
   }
 
   public long getNumBytes()
@@ -76,17 +93,80 @@ class ByteCountingLRUMap extends LinkedHashMap<ByteBuffer, byte[]>
     return evictionCount.get();
   }
 
+  public long getLruPutNums(){return lruPutNums.get();}
+
+  public long getTotalPutNums(){return totalPutNums.get();}
+
+  public long getOrfEvictionNums(){return orfEvictionNums.get();}
+
+  public long getScaledLFUEvictionNums(){return  scaledLFUEvictionNums.get();}
+
+  public static int byte2Int(byte[] a, int index){
+    int res = 0;
+    for(int i=index;i<4+index;i++){
+      res += (a[i] & 0xff) << ((i-index)*8);
+    }
+    return res;
+  }
+
+  public static byte[] int2Byte(int a){
+    byte[] tmpByte = new byte[4];
+    tmpByte[0] = (byte) (a & 0xff);
+    tmpByte[1] = (byte) (a >> 8 & 0xff);
+    tmpByte[2] = (byte) (a >> 16 & 0xff);
+    tmpByte[3] = (byte) (a >> 24 & 0xff);
+    return tmpByte;
+  }
+
+  /**
+   * 应该Override get方法
+   * 从链表中删除该item ，然后在插入到链表的头部
+   * 并返回value，如果链表中没有对应的数据，就返回NULL
+   * */
+  //@Override
+  public byte[] get(Object key, int dataIndex){
+    byte[] value = super.get(key);
+    if(value != null){
+      super.remove(key);
+      /**
+       * 这样put是否有问题 ？？ TODO
+       * */
+      int lfu = byte2Int(value,0);
+      lfu+=1;
+      byte[] tmpByte = int2Byte(lfu);
+      value[0] = tmpByte[0];
+      value[1] = tmpByte[1];
+      value[2] = tmpByte[2];
+      value[3] = tmpByte[3];
+
+      /**
+       * 更新dataIndex
+       * */
+      byte[] indexByte = int2Byte(dataIndex);
+      value[4] = indexByte[0];
+      value[5] = indexByte[1];
+      value[6] = indexByte[2];
+      value[7] = indexByte[3];
+
+      super.put((ByteBuffer) key,value);
+    }
+    return value;
+  }
+
+
+
+
   @Override
   public byte[] put(ByteBuffer key, byte[] value)
   {
-    numBytes.addAndGet(key.remaining() + value.length);
+    numBytes.addAndGet(key.remaining() + value.length + 4);
     Iterator<Map.Entry<ByteBuffer, byte[]>> it = entrySet().iterator();
-    List<ByteBuffer> keysToRemove = new ArrayList<>();
+
     long totalEvictionSize = 0L;
     while (numBytes.get() - totalEvictionSize > sizeInBytes && it.hasNext()) {
       evictionCount.incrementAndGet();
       if (logEvictions && evictionCount.get() % logEvictionCount == 0) {
-        log.info(
+        log.error(
             "Evicting %,dth element.  Size[%,d], numBytes[%,d], averageSize[%,d]",
             evictionCount.get(),
             size(),
@@ -101,10 +181,17 @@ class ByteCountingLRUMap extends LinkedHashMap<ByteBuffer, byte[]>
     }
 
     for (ByteBuffer keyToRemove : keysToRemove) {
+      int dataIndex = byte2Int(this.get(keyToRemove),4);
+      log.error(System.currentTimeMillis()+"  ByteCountingLRUMap.put evict from cache--->key:"+keyToRemove.hashCode()
+      +" dataIndex:"+dataIndex);
       remove(keyToRemove);
     }
+    keysToRemove.clear();
 
     byte[] old = super.put(key, value);
+    /**
+     * old不是空 说明是之前有值，返回旧的值  对应numBytes要更新
+     * */
     if (old != null) {
       numBytes.addAndGet(-key.remaining() - old.length);
     }
@@ -117,7 +204,9 @@ class ByteCountingLRUMap extends LinkedHashMap<ByteBuffer, byte[]>
     byte[] value = super.remove(key);
     if (value != null) {
       long delta = -((ByteBuffer) key).remaining() - value.length;
+      //System.out.println("before delete:"+delta+"  numBytes:"+numBytes.get());
       numBytes.addAndGet(delta);
+      //System.out.println("delete:"+delta+"  numBytes:"+numBytes.get());
     }
     return value;
   }

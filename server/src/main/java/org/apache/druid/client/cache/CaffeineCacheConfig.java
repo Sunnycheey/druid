@@ -29,6 +29,10 @@ public class CaffeineCacheConfig
   @JsonProperty
   private long expireAfter = -1;
 
+  public void setSizeInBytes(HumanReadableBytes sizeInBytes) {
+    this.sizeInBytes = sizeInBytes;
+  }
+
   @JsonProperty
   private HumanReadableBytes sizeInBytes = HumanReadableBytes.valueOf(-1);
 

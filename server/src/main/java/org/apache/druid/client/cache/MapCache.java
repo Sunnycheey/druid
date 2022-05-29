@@ -58,6 +58,9 @@ public class MapCache implements Cache
   )
   {
     this.byteCountingLRUMap = byteCountingLRUMap;
+    /**
+     * 这样做是为了实现byteCountingLRUMap在多线程下的同步
+     * */
     this.baseMap = Collections.synchronizedMap(byteCountingLRUMap);
 
     namespaceId = new HashMap<>();
@@ -79,7 +82,7 @@ public class MapCache implements Cache
   }
 
   @Override
-  public byte[] get(NamedKey key)
+  public byte[] get(NamedKey key)//get函数可能返回空
   {
     final byte[] retVal;
     synchronized (clearLock) {
@@ -87,16 +90,24 @@ public class MapCache implements Cache
     }
     if (retVal == null) {
       missCount.incrementAndGet();
+      return null;
     } else {
       hitCount.incrementAndGet();
+      byte[] newRetVal = new byte[retVal.length-4];
+      for(int m=0;m<newRetVal.length;m++){
+        newRetVal[m] = retVal[m+4];
+      }
+      return newRetVal;
     }
-    return retVal;
   }
 
   @Override
   public void put(NamedKey key, byte[] value)
   {
     synchronized (clearLock) {
+      /**
+       * baseMap不都同步了吗，为啥还要加  个lock
+       * */
       baseMap.put(computeKey(getNamespaceId(key.namespace), key.key), value);
     }
   }
@@ -129,7 +140,7 @@ public class MapCache implements Cache
     synchronized (clearLock) {
       Iterator<ByteBuffer> iter = baseMap.keySet().iterator();
       List<ByteBuffer> toRemove = new ArrayList<>();
-      while (iter.hasNext()) {
+      while (iter.hasNext()) {//前4个字节代表namespace，把Cache中namespace对应的内容都删除
         ByteBuffer next = iter.next();
 
         if (next.get(0) == idBytes[0]

@@ -45,9 +45,9 @@ import java.util.function.Function;
 public interface CachePopulator
 {
   <T, CacheType> Sequence<T> wrap(
-      Sequence<T> sequence,
-      Function<T, CacheType> cacheFn,
-      Cache cache,
-      Cache.NamedKey cacheKey
+          Sequence<T> sequence,
+          Function<T, CacheType> cacheFn,
+          Cache cache,
+          Cache.NamedKey cacheKey
   );
 }

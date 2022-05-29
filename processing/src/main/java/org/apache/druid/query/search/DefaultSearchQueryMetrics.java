@@ -184,6 +184,12 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
+  public QueryMetrics reportCacheTime(long timeNs)
+  {
+    return delegateQueryMetrics.reportCacheTime(timeNs);
+  }
+
+  @Override
   public QueryMetrics reportQueryBytes(long byteCount)
   {
     return delegateQueryMetrics.reportQueryBytes(byteCount);
