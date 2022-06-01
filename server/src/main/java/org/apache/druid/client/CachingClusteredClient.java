@@ -363,13 +363,18 @@ public class CachingClusteredClient implements QuerySegmentWalker
         }
       }
 
+//      final long startTime = System.nanoTime();
+
       final List<Pair<Interval, byte[]>> alreadyCachedResults =
           pruneSegmentsWithCachedResults(queryCacheKey, segmentServers);
+
+//      final long endTime = System.nanoTime();
 
       query = scheduler.prioritizeAndLaneQuery(queryPlus, segmentServers);
       queryPlus = queryPlus.withQuery(query);
       queryPlus = queryPlus.withQueryMetrics(toolChest);
       queryPlus.getQueryMetrics().reportQueriedSegmentCount(segmentServers.size()).emit(emitter);
+//      queryPlus.getQueryMetrics().reportCacheTime(endTime-startTime).emit(emitter);
 
       final SortedMap<DruidServer, List<SegmentDescriptor>> segmentsByServer = groupSegmentsByServer(segmentServers);
       LazySequence<T> mergedResultSequence = new LazySequence<>(() -> {

@@ -1,7 +1,10 @@
 package org.apache.druid.client.cache;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class ORFCacheConfig {
-    private final int cacheSize = 400;
+    @JsonProperty
+    private int cacheSize = 400;
 
     public int getCacheSize() {
         return cacheSize;
@@ -47,12 +50,20 @@ public class ORFCacheConfig {
         return evaluateThreshold;
     }
 
-    private final int cacheItem = 100;
-    private final int trainDataThreshold=4;
-    private final int maxItem=10;
-    private final int itemNum=10;
-    private final int numScaled=5;
+    @JsonProperty
+    private int cacheItem = 100;
+    @JsonProperty
+    private int trainDataThreshold=4;
+    @JsonProperty
+    private int maxItem=10;
+    @JsonProperty
+    private int itemNum=10;
+    @JsonProperty
+    private int numScaled=5;
+    @JsonProperty
     private double bypassThreashold=0.5;
+    @JsonProperty
     private double cacheThreshold=0.5;
-    private final int evaluateThreshold=300;
+    @JsonProperty
+    private int evaluateThreshold=300;
 }

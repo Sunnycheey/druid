@@ -386,6 +386,8 @@ public interface QueryMetrics<QueryType extends Query<?>>
 
   QueryMetrics<QueryType> reportCacheTime(long timeNs);
 
+  QueryMetrics<QueryType> reportCacheTimeResultLevel(long timeNs);
+
   /**
    * Emits all metrics, registered since the last {@code emit()} call on this QueryMetrics object.
    */

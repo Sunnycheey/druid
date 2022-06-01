@@ -350,7 +350,13 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   @Override
   public QueryMetrics<QueryType> reportCacheTime(long timeNs)
   {
-    return reportMetric("query/cache/time", timeNs);
+    return reportMillisTimeMetric("query/cache/time", timeNs);
+  }
+
+  @Override
+  public QueryMetrics<QueryType> reportCacheTimeResultLevel(long timeNs)
+  {
+    return reportMillisTimeMetric("query/cache/result_level_time", timeNs);
   }
 
   @Override

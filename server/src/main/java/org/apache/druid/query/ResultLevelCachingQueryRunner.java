@@ -36,6 +36,7 @@ import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.server.QueryResource;
 
@@ -44,6 +45,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
 {
@@ -56,6 +58,7 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
   private final boolean populateResultCache;
   private Query<T> query;
   private final CacheStrategy<T, Object, Query<T>> strategy;
+  private ServiceEmitter serviceEmitter;
 
 
   public ResultLevelCachingQueryRunner(
@@ -64,7 +67,8 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
       Query<T> query,
       ObjectMapper objectMapper,
       Cache cache,
-      CacheConfig cacheConfig
+      CacheConfig cacheConfig,
+      ServiceEmitter serviceEmitter
   )
   {
     this.baseRunner = baseRunner;
@@ -80,6 +84,7 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
         CacheUtil.ServerType.BROKER
     );
     this.useResultCache = CacheUtil.isUseResultCache(query, strategy, cacheConfig, CacheUtil.ServerType.BROKER);
+    this.serviceEmitter = serviceEmitter;
   }
 
   @Override
@@ -95,6 +100,8 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
       query = query.withOverriddenContext(
           ImmutableMap.of(QueryResource.HEADER_IF_NONE_MATCH, existingResultSetId));
 
+      final long startTime = System.nanoTime();
+
       Sequence<T> resultFromClient = baseRunner.run(
           QueryPlus.wrap(query),
           responseContext
@@ -103,6 +110,9 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
 
       if (useResultCache && newResultSetId != null && newResultSetId.equals(existingResultSetId)) {
         log.debug("Return cached result set as there is no change in identifiers for query %s ", query.getId());
+        final long endTime = System.nanoTime();
+        queryPlus.getQueryMetrics().reportCacheTimeResultLevel(endTime-startTime).emit(serviceEmitter);
+        log.info("Total latency in millisecond: %d", TimeUnit.NANOSECONDS.toMillis(endTime-startTime));
         return deserializeResults(cachedResultSet, strategy, existingResultSetId);
       } else {
         @Nullable
@@ -115,7 +125,7 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
         }
         final Function<T, Object> cacheFn = strategy.prepareForCache(true);
 
-        return Sequences.wrap(
+        Sequence<T> seq =  Sequences.wrap(
             Sequences.map(
                 resultFromClient,
                 new Function<T, T>()
@@ -155,12 +165,21 @@ public class ResultLevelCachingQueryRunner<T> implements QueryRunner<T>
               }
             }
         );
+        final long endTime = System.nanoTime();
+        queryPlus.getQueryMetrics().reportCacheTimeResultLevel(endTime-startTime).emit(serviceEmitter);
+        log.info("Total latency in millisecond: %d", TimeUnit.NANOSECONDS.toMillis(endTime-startTime));
+        return seq;
       }
     } else {
-      return baseRunner.run(
+      final long startTime = System.nanoTime();
+      Sequence<T> seq  = baseRunner.run(
           queryPlus,
           responseContext
       );
+      final long endTime = System.nanoTime();
+      queryPlus.getQueryMetrics().reportCacheTimeResultLevel(endTime-startTime).emit(serviceEmitter);
+      log.info("Total latency in millisecond: %d", TimeUnit.NANOSECONDS.toMillis(endTime-startTime));
+      return seq;
     }
   }
 

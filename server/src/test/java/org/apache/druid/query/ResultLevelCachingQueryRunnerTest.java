@@ -26,6 +26,7 @@ import org.apache.druid.client.cache.MapCache;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
+import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
 import org.junit.After;
@@ -245,7 +246,8 @@ public class ResultLevelCachingQueryRunnerTest extends QueryRunnerBasedOnCluster
         query,
         objectMapper,
         cache,
-        cacheConfig
+        cacheConfig,
+        new NoopServiceEmitter()
     );
   }
 
